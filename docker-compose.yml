@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/gift-auction
+      - MONGODB_URI=mongodb://mongo:27017/send-auctions
       - NODE_ENV=production
     depends_on:
       - mongo
