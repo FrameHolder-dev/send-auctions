@@ -1,10 +1,16 @@
 import { Request, Response } from 'express';
-import { bidService } from '../services/index.js';
+import { bidService, roundService } from '../services/index.js';
 
 export class BidController {
   async create(req: Request, res: Response): Promise<void> {
-    const bid = await bidService.create(req.body);
-    res.status(201).json(bid);
+    try {
+      const { auctionId, userId, amount } = req.body;
+      const bid = await roundService.placeBid(auctionId, userId, amount);
+      res.status(201).json(bid);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to place bid';
+      res.status(400).json({ error: message });
+    }
   }
 
   async getByAuction(req: Request, res: Response): Promise<void> {
@@ -15,6 +21,11 @@ export class BidController {
   async getByUser(req: Request, res: Response): Promise<void> {
     const bids = await bidService.findByUser(req.params.userId);
     res.json(bids);
+  }
+
+  async getLeaderboard(req: Request, res: Response): Promise<void> {
+    const state = await roundService.getAuctionState(req.params.auctionId);
+    res.json(state);
   }
 }
 

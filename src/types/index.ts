@@ -43,7 +43,7 @@ export interface RoundResult {
 
 export interface WinnerEntry {
   odId: string;
-  odId: string;
+  userId: string;
   itemNumber: number;
   amount: number;
 }
