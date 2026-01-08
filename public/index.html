@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Send Auctions</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1 { margin-bottom: 20px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab { padding: 10px 20px; background: #222; border: none; color: #fff; cursor: pointer; border-radius: 8px; }
+    .tab.active { background: #3b82f6; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card { background: #1a1a1a; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #888; }
+    .form-group input { width: 100%; padding: 10px; background: #222; border: 1px solid #333; border-radius: 8px; color: #fff; }
+    .btn { padding: 12px 24px; background: #3b82f6; border: none; color: #fff; border-radius: 8px; cursor: pointer; font-size: 16px; }
+    .btn:hover { background: #2563eb; }
+    .btn:disabled { background: #444; cursor: not-allowed; }
+    .auction-list { display: grid; gap: 15px; }
+    .auction-item { background: #1a1a1a; border-radius: 12px; padding: 20px; cursor: pointer; transition: transform 0.2s; }
+    .auction-item:hover { transform: translateY(-2px); }
+    .auction-title { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+    .auction-meta { color: #888; font-size: 14px; }
+    .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    .status.active { background: #22c55e20; color: #22c55e; }
+    .status.pending { background: #eab30820; color: #eab308; }
+    .status.completed { background: #64748b20; color: #64748b; }
+    .leaderboard { margin-top: 20px; }
+    .leaderboard-item { display: flex; justify-content: space-between; padding: 12px; background: #222; border-radius: 8px; margin-bottom: 8px; }
+    .leaderboard-item.winning { background: #22c55e20; border: 1px solid #22c55e40; }
+    .timer { font-size: 24px; font-weight: 600; color: #3b82f6; margin: 20px 0; }
+    .user-info { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; }
+    .balance { font-size: 20px; font-weight: 600; }
+    .balance span { color: #22c55e; }
+    .bid-form { display: flex; gap: 10px; margin-top: 20px; }
+    .bid-form input { flex: 1; }
+    #toast { position: fixed; bottom: 20px; right: 20px; padding: 15px 25px; background: #22c55e; color: #fff; border-radius: 8px; display: none; }
+    #toast.error { background: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Send Auctions</h1>
+    
+    <div class="user-info" id="userInfo" style="display: none;">
+      <div>
+        <div style="color: #888; font-size: 14px;">Вы вошли как</div>
+        <div id="username" style="font-weight: 600;"></div>
+      </div>
+      <div class="balance">Баланс: <span id="balance">0</span></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="auctions">Аукционы</button>
+      <button class="tab" data-tab="create">Создать</button>
+      <button class="tab" data-tab="account">Аккаунт</button>
+    </div>
+
+    <div id="auctions" class="panel active">
+      <div class="auction-list" id="auctionList"></div>
+    </div>
+
+    <div id="create" class="panel">
+      <div class="card">
+        <h2 style="margin-bottom: 20px;">Создать аукцион</h2>
+        <form id="createForm">
+          <div class="form-group">
+            <label>Название</label>
+            <input type="text" name="title" required>
+          </div>
+          <div class="form-group">
+            <label>Описание</label>
+            <input type="text" name="description">
+          </div>
+          <div class="form-group">
+            <label>Всего товаров</label>
+            <input type="number" name="totalItems" value="10" required>
+          </div>
+          <div class="form-group">
+            <label>Товаров за раунд</label>
+            <input type="number" name="itemsPerRound" value="3" required>
+          </div>
+          <div class="form-group">
+            <label>Минимальная ставка</label>
+            <input type="number" name="minBid" value="100" required>
+          </div>
+          <div class="form-group">
+            <label>Длительность раунда (секунды)</label>
+            <input type="number" name="roundDuration" value="300" required>
+          </div>
+          <div class="form-group">
+            <label>Anti-Sniping продление (секунды)</label>
+            <input type="number" name="antiSnipingSeconds" value="30" required>
+          </div>
+          <button type="submit" class="btn">Создать</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="account" class="panel">
+      <div class="card">
+        <h2 style="margin-bottom: 20px;">Аккаунт</h2>
+        <div id="loginForm">
+          <div class="form-group">
+            <label>Имя пользователя</label>
+            <input type="text" id="loginUsername" placeholder="Введите имя">
+          </div>
+          <button class="btn" onclick="login()">Войти / Регистрация</button>
+        </div>
+        <div id="depositForm" style="display: none; margin-top: 20px;">
+          <div class="form-group">
+            <label>Сумма пополнения</label>
+            <input type="number" id="depositAmount" value="1000">
+          </div>
+          <button class="btn" onclick="deposit()">Пополнить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="auctionDetail" class="panel">
+      <button class="btn" onclick="showTab('auctions')" style="margin-bottom: 20px;">Назад</button>
+      <div class="card">
+        <h2 id="detailTitle"></h2>
+        <p id="detailDescription" style="color: #888; margin: 10px 0;"></p>
+        <div class="timer" id="detailTimer"></div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0;">
+          <div><div style="color: #888;">Раунд</div><div id="detailRound" style="font-size: 20px; font-weight: 600;"></div></div>
+          <div><div style="color: #888;">Товаров в раунде</div><div id="detailItems" style="font-size: 20px; font-weight: 600;"></div></div>
+          <div><div style="color: #888;">Осталось</div><div id="detailRemaining" style="font-size: 20px; font-weight: 600;"></div></div>
+          <div><div style="color: #888;">Мин. выигрышная</div><div id="detailMinBid" style="font-size: 20px; font-weight: 600;"></div></div>
+        </div>
+        <div class="bid-form" id="bidForm">
+          <input type="number" id="bidAmount" placeholder="Сумма ставки">
+          <button class="btn" onclick="placeBid()">Сделать ставку</button>
+        </div>
+        <div class="leaderboard">
+          <h3 style="margin-bottom: 15px;">Лидерборд</h3>
+          <div id="leaderboardList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const API = '/api';
+    let currentUser = null;
+    let currentAuction = null;
+    let refreshInterval = null;
+
+    async function api(path, method = 'GET', body) {
+      const res = await fetch(API + path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      return res.json();
+    }
+
+    function toast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = isError ? 'error' : '';
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
+      document.getElementById(tab).classList.add('active');
+      if (tab === 'auctions') loadAuctions();
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => showTab(tab.dataset.tab));
+    });
+
+    async function login() {
+      const username = document.getElementById('loginUsername').value.trim();
+      if (!username) return;
+
+      let user = await api(`/users?username=${username}`);
+      if (!user || user.error) {
+        user = await api('/users', 'POST', { username });
+      }
+      
+      currentUser = user;
+      localStorage.setItem('userId', user._id);
+      updateUserUI();
+      toast('Вход выполнен');
+    }
+
+    async function loadUser() {
+      const userId = localStorage.getItem('userId');
+      if (userId) {
+        const user = await api(`/users/${userId}`);
+        if (user && !user.error) {
+          currentUser = user;
+          updateUserUI();
+        }
+      }
+    }
+
+    function updateUserUI() {
+      if (currentUser) {
+        document.getElementById('userInfo').style.display = 'flex';
+        document.getElementById('username').textContent = currentUser.username;
+        document.getElementById('balance').textContent = currentUser.balance;
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('depositForm').style.display = 'block';
+      }
+    }
+
+    async function deposit() {
+      if (!currentUser) return;
+      const amount = parseInt(document.getElementById('depositAmount').value);
+      const user = await api(`/users/${currentUser._id}/deposit`, 'POST', { amount });
+      if (user.error) return toast(user.error, true);
+      currentUser = user;
+      updateUserUI();
+      toast(`Пополнено на ${amount}`);
+    }
+
+    async function loadAuctions() {
+      const auctions = await api('/auctions');
+      const list = document.getElementById('auctionList');
+      list.innerHTML = auctions.map(a => `
+        <div class="auction-item" onclick="openAuction('${a._id}')">
+          <div class="auction-title">${a.title}</div>
+          <div class="auction-meta">
+            <span class="status ${a.status}">${a.status}</span>
+            ${a.totalItems} товаров, мин. ставка: ${a.minBid}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function openAuction(id) {
+      currentAuction = id;
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('auctionDetail').classList.add('active');
+      await refreshAuction();
+      if (refreshInterval) clearInterval(refreshInterval);
+      refreshInterval = setInterval(refreshAuction, 1000);
+    }
+
+    async function refreshAuction() {
+      if (!currentAuction) return;
+      const state = await api(`/auctions/${currentAuction}/state`);
+      if (state.error) return;
+
+      document.getElementById('detailTitle').textContent = state.auction.title;
+      document.getElementById('detailDescription').textContent = state.auction.description || '';
+      document.getElementById('detailRound').textContent = `${state.currentRound} / ${state.totalRounds}`;
+      document.getElementById('detailItems').textContent = state.itemsThisRound;
+      document.getElementById('detailRemaining').textContent = state.remainingItems;
+      document.getElementById('detailMinBid').textContent = state.minWinningBid;
+
+      const timeLeft = Math.max(0, state.timeLeft);
+      const mins = Math.floor(timeLeft / 60000);
+      const secs = Math.floor((timeLeft % 60000) / 1000);
+      document.getElementById('detailTimer').textContent = 
+        state.auction.status === 'completed' ? 'Завершён' :
+        state.auction.status === 'pending' ? 'Не начат' :
+        `${mins}:${secs.toString().padStart(2, '0')}`;
+
+      document.getElementById('bidForm').style.display = 
+        state.auction.status === 'active' ? 'flex' : 'none';
+
+      const list = document.getElementById('leaderboardList');
+      list.innerHTML = state.leaderboard.length ? state.leaderboard.map((b, i) => `
+        <div class="leaderboard-item ${b.isWinning ? 'winning' : ''}">
+          <span>#${b.rank}</span>
+          <span>${b.amount}</span>
+        </div>
+      `).join('') : '<div style="color: #888;">Ставок пока нет</div>';
+
+      if (currentUser) {
+        const user = await api(`/users/${currentUser._id}`);
+        currentUser = user;
+        updateUserUI();
+      }
+    }
+
+    async function placeBid() {
+      if (!currentUser) return toast('Сначала войдите', true);
+      const amount = parseInt(document.getElementById('bidAmount').value);
+      if (!amount) return toast('Введите сумму', true);
+
+      const result = await api('/bids', 'POST', {
+        auctionId: currentAuction,
+        userId: currentUser._id,
+        amount
+      });
+
+      if (result.error) return toast(result.error, true);
+      if (result.extended) {
+        toast('Ставка принята! Время продлено (anti-sniping)');
+      } else {
+        toast('Ставка принята');
+      }
+      document.getElementById('bidAmount').value = '';
+      refreshAuction();
+    }
+
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      const roundDuration = parseInt(form.get('roundDuration')) * 1000;
+      
+      const auction = await api('/auctions', 'POST', {
+        title: form.get('title'),
+        description: form.get('description'),
+        totalItems: parseInt(form.get('totalItems')),
+        itemsPerRound: parseInt(form.get('itemsPerRound')),
+        minBid: parseInt(form.get('minBid')),
+        antiSnipingSeconds: parseInt(form.get('antiSnipingSeconds')),
+        roundEndsAt: new Date(Date.now() + roundDuration)
+      });
+
+      if (auction.error) return toast(auction.error, true);
+      
+      await api(`/auctions/${auction._id}/start`, 'POST');
+      toast('Аукцион создан');
+      e.target.reset();
+      showTab('auctions');
+    });
+
+    loadUser();
+    loadAuctions();
+  </script>
+</body>
+</html>

@@ -21,6 +21,20 @@ export class UserController {
     res.json(user);
   }
 
+  async getByUsername(req: Request, res: Response): Promise<void> {
+    const username = req.query.username as string;
+    if (!username) {
+      res.status(400).json({ error: 'Username required' });
+      return;
+    }
+    const user = await userService.findByUsername(username);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    res.json(user);
+  }
+
   async deposit(req: Request, res: Response): Promise<void> {
     try {
       const user = await userService.deposit(req.params.id, req.body.amount);
